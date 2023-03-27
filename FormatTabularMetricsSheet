@@ -1,0 +1,92 @@
+Public Sub FormatTabularMetricsSheet()
+
+    Dim sht As Worksheet: Set sht = Worksheets("Tabular Metrics")
+    Dim i, startRow, startMonth, rowMonth
+    
+    Dim ClrShellRed:  ClrShellRed = Range("ClrShellRed")
+    Dim ClrShellYellow:  ClrShellYellow = Range("ClrShellYellow")
+    
+    startRow = 4
+    startMonth = 12
+    Dim currentRow: currentRow = startRow
+    For i = 1 To 12
+        rowMonth = startMonth - i + 1
+        ''Set the currentRow + B to rowMonth value
+        sht.Range("B" & currentRow) = rowMonth
+        sht.Range("B" & currentRow + 2) = "CSA"
+        sht.Range("B" & currentRow + 3) = "Email"
+        sht.Range("B" & currentRow + 4) = "SMH"
+        ''Set the C+ currentRow formula so that it produces DECEMBER 2022 format -> Year is D2
+        sht.Range("C" & currentRow) = "=""" & MonthName(rowMonth) & " "" & $D$2"
+        ''Set the target percentage to the N column percentages -> K column
+        sht.Range("K" & (currentRow + 2) & ":K" & (currentRow + 4)) = "=$N5"
+        sht.Range("K" & (currentRow + 2) & ":K" & (currentRow + 4)).HorizontalAlignment = xlCenter
+        ''Set the formula of the expired
+        sht.Range("F" & (currentRow + 2) & ":F" & (currentRow + 4)) = ExpiredFormula(currentRow + 2, rowMonth)
+        sht.Range("F" & (currentRow + 2) & ":F" & (currentRow + 4)).HorizontalAlignment = xlCenter
+        ''Set the formula of the on time
+        sht.Range("G" & (currentRow + 2) & ":G" & (currentRow + 4)) = OnTimeFormula(currentRow + 2, rowMonth)
+        sht.Range("G" & (currentRow + 2) & ":G" & (currentRow + 4)).HorizontalAlignment = xlCenter
+        ''Set the Grand Total Formula
+        sht.Range("H" & (currentRow + 2) & ":H" & (currentRow + 4)) = "=IFERROR($F" & currentRow + 2 & " + $G" & currentRow + 2 & ","""")"
+        sht.Range("H" & (currentRow + 2) & ":H" & (currentRow + 4)).HorizontalAlignment = xlCenter
+        ''Set the expired percentage or column I
+        sht.Range("I" & (currentRow + 2) & ":I" & (currentRow + 4)) = "=IFERROR(ROUND($F" & currentRow + 2 & "/$H" & currentRow + 2 & ",2),"""")"
+        sht.Range("I" & (currentRow + 2) & ":I" & (currentRow + 4)).HorizontalAlignment = xlCenter
+        sht.Range("I" & (currentRow + 2) & ":I" & (currentRow + 4)).numberFormat = "0%"
+        ''Set the on time percentage or column J
+        sht.Range("J" & (currentRow + 2) & ":J" & (currentRow + 4)) = "=IFERROR(1 - $I" & currentRow + 2 & ","""")"
+        sht.Range("J" & (currentRow + 2) & ":J" & (currentRow + 4)).HorizontalAlignment = xlCenter
+        sht.Range("J" & (currentRow + 2) & ":J" & (currentRow + 4)).numberFormat = "0%"
+        
+        AddConditionalFormattingToMetricsSheet currentRow + 2
+        AddConditionalFormattingToMetricsSheet currentRow + 3
+        AddConditionalFormattingToMetricsSheet currentRow + 4
+        ''Set the height of currentRow to 26.25
+        sht.Rows(currentRow).RowHeight = 26.25
+        ''Set the height to 15 for the next 5 rows after the currentRow
+        sht.Rows((currentRow + 1) & ":" & (currentRow + 5)).RowHeight = 15
+        ''Step by 6 the currentRow
+        currentRow = currentRow + 6
+    Next i
+    
+End Sub
+
+Public Function ExpiredFormula(targetRow, rowMonth)
+
+    Dim Formula: Formula = "=IFERROR(GETPIVOTDATA(""[Measures].[Closed Requests]"",$S$2," & _
+    """[MainTable].[Status]"",""[MainTable].[Status].&[Closed but Expired]""," & _
+    """[MainTable].[Main Category]"",""[MainTable].[Main Category].&["" & $B" & targetRow & " & ""]""," & _
+    """[MainTable].[Creation Date & Time of CSA (Year)]"",""[MainTable].[Creation Date & Time of CSA (Year)].&["" & $D$2 & ""]""," & _
+    """[MainTable].[Creation Date & Time of CSA (Month)]"",""[MainTable].[Creation Date & Time of CSA (Month)].&[" & MonthName(rowMonth, True) & "]""),"""")"
+    
+    ExpiredFormula = Formula
+    
+End Function
+
+Public Function OnTimeFormula(targetRow, rowMonth)
+
+    Dim Formula: Formula = "=IFERROR(GETPIVOTDATA(""[Measures].[Closed Requests]"",$S$2," & _
+    """[MainTable].[Status]"",""[MainTable].[Status].&[Closed on Time]""," & _
+    """[MainTable].[Main Category]"",""[MainTable].[Main Category].&["" & $B" & targetRow & " & ""]""," & _
+    """[MainTable].[Creation Date & Time of CSA (Year)]"",""[MainTable].[Creation Date & Time of CSA (Year)].&["" & $D$2 & ""]""," & _
+    """[MainTable].[Creation Date & Time of CSA (Month)]"",""[MainTable].[Creation Date & Time of CSA (Month)].&[" & MonthName(rowMonth, True) & "]""),"""")"
+    
+    OnTimeFormula = Formula
+    
+End Function
+
+Public Sub AddConditionalFormattingToMetricsSheet(curRow)
+
+    Dim sht As Worksheet: Set sht = Worksheets("Tabular Metrics")
+    Dim rng As Range
+    Set rng = sht.Range("I" & curRow & ":J" & curRow) 'set the range using the argument
+    rng.FormatConditions.Delete 'delete any existing formats
+    rng.FormatConditions.Add Type:=xlExpression, Formula1:="=$J" & curRow & ">$K" & curRow 'add a condition for J6 > K6 using the argument and a $ sign to lock the column reference
+    rng.FormatConditions(1).Interior.Color = vbGreen 'set the fill color to green
+    rng.FormatConditions(1).Font.Color = vbBlack 'set the font color to black
+    rng.FormatConditions.Add Type:=xlExpression, Formula1:="=$J" & curRow & "<=$K" & curRow 'add a condition for J6 <= K6 using the argument and a $ sign to lock the column reference
+    rng.FormatConditions(2).Interior.Color = vbRed 'set the fill color to red
+    rng.FormatConditions(2).Font.Color = vbWhite 'set the font color to white
+    
+End Sub
